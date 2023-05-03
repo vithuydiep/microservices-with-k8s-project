@@ -1,0 +1,40 @@
+eksctl create cluster --name vidt --region us-east-1 --version 1.25 --vpc-private-subnets=subnet-016e7c8e0e9e406c7,subnet-0439d591fa6258142 --vpc-public-subnets=subnet-0e30076fd12466c62,subnet-0056ef2f25904b4a1 --without-nodegroup
+
+eksctl create nodegroup --cluster vidt --region us-east-1 --name mynode --node-type m5.large --nodes 2 --nodes-min 2 --nodes-max 3 --ssh-access --ssh-public-key my_keypair
+
+
+kubectl apply -f ./config/aws-secret.yaml
+kubectl apply -f ./config/env-secret.yaml
+kubectl apply -f ./config/env-configmap.yaml
+
+
+kubectl apply -f ./config/backend-feed-deployment.yaml
+kubectl apply -f ./config/backend-user-deployment.yaml
+kubectl apply -f ./config/frontend-deployment.yaml 
+kubectl apply -f ./config/reverseproxy-deployment.yaml
+
+
+kubectl apply -f ./config/backend-feed-service.yaml
+kubectl apply -f ./config/backend-user-service.yaml
+kubectl apply -f ./config/frontend-service.yaml 
+kubectl apply -f ./config/reverseproxy-service.yaml
+
+
+kubectl expose deployment frontend --type=LoadBalancer --name=publicfrontend
+kubectl expose deployment reverseproxy --type=LoadBalancer --name=publicreverseproxy
+
+
+
+kubectl delete service backend-feed backend-user frontend kubernetes publicfrontend publicreverseproxy reverseproxy
+kubectl delete deployment backend-feed backend-user frontend reverseproxy
+
+
+
+
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.4.5/components.yaml
+kubectl get deployment metrics-server -n kube-system
+
+
+#autoscaling
+kubectl autoscale deployment backend-user --cpu-percent=10 --min=3 --max=5
+
